@@ -1,1 +1,1 @@
-# smart-home-lights
+# smart-home-power-monitoring

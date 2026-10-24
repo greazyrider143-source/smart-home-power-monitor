@@ -1,0 +1,212 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 Smart Home</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;padding:18px;
+  font-family:Arial,sans-serif;
+  background:#081322;color:#fff
+}
+main{max-width:520px;margin:auto}
+h1{text-align:center;color:#43c5ff}
+p{color:#a9bbd0}
+.card{
+  background:#13243a;padding:16px;
+  border-radius:15px;margin:12px 0;
+  border:1px solid #294563
+}
+input{
+  width:100%;padding:12px;margin:5px 0;
+  border-radius:8px;border:1px solid #49617b;
+  background:#081322;color:white
+}
+button{
+  padding:12px;border:0;border-radius:9px;
+  background:#1686df;color:white;
+  font-weight:bold;cursor:pointer
+}
+.loginrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lightrow{
+  display:flex;align-items:center;
+  justify-content:space-between;gap:8px
+}
+.lightrow h3{margin:5px 0}
+.state{font-size:12px;color:#9eafc3}
+.switch{min-width:82px}
+.on{background:#087d4b}
+.off{background:#9d2638}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#message{overflow-wrap:anywhere;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>🏠 Smart Home</h1>
+<p style="text-align:center">ESP32 • Firebase Cloud Control</p>
+
+<section class="card">
+  <h3>Firebase Login</h3>
+  <input id="email" type="email" placeholder="Firebase email">
+  <input id="password" type="password" placeholder="Firebase password">
+  <div class="loginrow">
+    <button id="login">Login</button>
+    <button id="logout">Logout</button>
+  </div>
+  <p id="connection">Not connected</p>
+  <p id="message">Login to control lights.</p>
+</section>
+
+<div id="lights"></div>
+
+<section class="card">
+  <div class="actions">
+    <button id="allOn">ALL ON</button>
+    <button id="allOff" class="off">ALL OFF</button>
+  </div>
+</section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDRSo11vBQDQwYmn7rty9-phdrDGsBz9f0",
+  authDomain: "smart-home-light-aa446.firebaseapp.com",
+  databaseURL: "https://smart-home-light-aa446-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "smart-home-light-aa446",
+  storageBucket: "smart-home-light-aa446.firebasestorage.app",
+  messagingSenderId: "782442454160",
+  appId: "1:782442454160:web:00f8a230fd37ed5b4b0c15",
+  measurementId: "G-QCMJYVGGFH"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+const lights = [
+  {path:"lights/front", name:"Hall Light"},
+  {path:"lights/back", name:"Bedroom Light"},
+  {path:"lights/wall", name:"Kitchen Light"},
+  {path:"lights/gate", name:"Gate Light"}
+];
+
+const root = document.getElementById("lights");
+const message = document.getElementById("message");
+const connection = document.getElementById("connection");
+let currentUser = null;
+
+lights.forEach((light, i) => {
+  const card = document.createElement("section");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="lightrow">
+      <div>
+        <h3>${light.name}</h3>
+        <span class="state" id="state${i}">OFF</span>
+      </div>
+      <button class="switch" id="switch${i}">OFF</button>
+    </div>`;
+  root.appendChild(card);
+
+  document.getElementById("switch" + i).onclick = () => {
+    if (!currentUser) {
+      message.textContent = "Please login first.";
+      return;
+    }
+    const btn = document.getElementById("switch" + i);
+    setLight(light, !btn.classList.contains("on"));
+  };
+});
+
+function showLight(light, value) {
+  const i = lights.findIndex(x => x.path === light.path);
+  const btn = document.getElementById("switch" + i);
+  const state = document.getElementById("state" + i);
+
+  btn.textContent = value ? "ON" : "OFF";
+  btn.classList.toggle("on", value);
+  btn.classList.toggle("off", !value);
+  state.textContent = value ? "● ON" : "○ OFF";
+  state.style.color = value ? "#39ef9b" : "#9eafc3";
+}
+
+async function setLight(light, value) {
+  if (!currentUser) return;
+
+  try {
+    await db.ref("/" + light.path).set(value);
+    message.textContent = light.name + ": " + (value ? "ON" : "OFF");
+  } catch (e) {
+    message.textContent = "Error: " + e.message;
+  }
+}
+
+async function setAll(value) {
+  if (!currentUser) {
+    message.textContent = "Please login first.";
+    return;
+  }
+
+  try {
+    const updates = {};
+    lights.forEach(light => {
+      updates["/" + light.path] = value;
+    });
+
+    await db.ref().update(updates);
+    message.textContent = value ? "All lights ON" : "All lights OFF";
+  } catch (e) {
+    message.textContent = "Error: " + e.message;
+  }
+}
+
+document.getElementById("allOn").onclick = () => setAll(true);
+document.getElementById("allOff").onclick = () => setAll(false);
+
+document.getElementById("login").onclick = async () => {
+  try {
+    await auth.signInWithEmailAndPassword(
+      document.getElementById("email").value.trim(),
+      document.getElementById("password").value
+    );
+  } catch (e) {
+    message.textContent = "Login failed: " + e.message;
+  }
+};
+
+document.getElementById("logout").onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  connection.textContent = user
+    ? "● Firebase connected"
+    : "Not logged in";
+
+  if (!user) {
+    message.textContent = "Login to control lights.";
+    lights.forEach(light => showLight(light, false));
+    return;
+  }
+
+  message.textContent = "Logged in successfully.";
+
+  lights.forEach(light => {
+    db.ref("/" + light.path).on("value", snapshot => {
+      showLight(light, snapshot.val() === true);
+    }, error => {
+      message.textContent = "Read error: " + error.message;
+    });
+  });
+});
+</script>
+</body>
+</html>

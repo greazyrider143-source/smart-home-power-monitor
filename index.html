@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Home Light</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#101827;color:#f8fafc;padding:18px}
+.wrap{max-width:520px;margin:auto}h1{margin:8px 0 4px;font-size:27px}.sub{color:#aab7cc;margin:0 0 20px}
+.panel{background:#1b2638;border:1px solid #334155;border-radius:16px;padding:16px;margin:12px 0}
+label{display:block;font-size:13px;color:#cbd5e1;margin:12px 0 6px}
+input{width:100%;padding:12px;border-radius:9px;border:1px solid #475569;background:#0f172a;color:white;font-size:15px}
+button{border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;cursor:pointer}
+.primary{background:#38bdf8;color:#082f49;width:100%;margin-top:14px}
+.lightrow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #334155}.lightrow:last-child{border-bottom:0}
+.bulb{font-size:25px}.name{flex:1;font-weight:700}.state{font-size:12px;color:#94a3b8;margin-top:4px}
+.toggle{min-width:82px;background:#334155;color:#e2e8f0}.toggle.on{background:#22c55e;color:#052e16}
+.status{font-size:13px;line-height:1.5;color:#cbd5e1;white-space:pre-wrap}.small{font-size:12px;color:#94a3b8;line-height:1.5}.hidden{display:none}
+.light-actions{display:flex;gap:8px;align-items:center}
+.light-actions button{min-width:64px;padding:12px 16px;border:0;border-radius:12px;font-weight:800;color:#dbe5f3;background:#334155}
+.light-actions .selected-on{background:#20c997;color:#062d26}
+.light-actions .selected-off{background:#dc465b;color:white}
+.light-actions button:disabled{opacity:.55}
+.linkbtn{background:transparent;color:#93c5fd;padding:8px 0}.all-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.all-controls .primary{margin-top:12px;padding:12px 6px}
+</style>
+</head>
+<body><div class="wrap">
+<h1>🏠 Smart Home Light</h1><p class="sub">Local Wi-Fi + Internet Cloud Control</p>
+<div class="all-controls" style="margin:14px 0"><button class="primary" id="localModeBtn">LOCAL Wi-Fi</button><button class="primary" id="cloudModeBtn">INTERNET CLOUD</button></div>
+<section class="panel hidden" id="localPanel"><strong>Local Wi-Fi Control</strong><p class="small">Phone-ஐ ESP32-Light Wi-Fi-க்கு connect செய்து பயன்படுத்தவும். Password: 12345678</p><label for="localAddress">ESP32 address</label><input id="localAddress" value="http://192.168.4.1"/><div class="all-controls"><button class="primary" id="localAllOn">ALL LIGHTS ON</button><button class="primary" id="localAllOff" style="background:#dc465b;color:white">ALL LIGHTS OFF</button></div><div id="localLights"></div><button class="primary" id="localRefresh">Refresh local status</button><p id="localStatus" class="status">Connect to ESP32-Light Wi-Fi first.</p></section>
+<section class="panel hidden" id="loginPanel">
+<strong>Connect to Firebase</strong>
+<p class="small">First connection uses Firebase Anonymous Authentication. No email or password is needed.</p>
+<label for="apiKey">Firebase Web API Key</label><input id="apiKey" autocomplete="off" placeholder="Paste Firebase Web API Key">
+<button class="primary" id="connectBtn">Connect without password</button>
+</section>
+<section class="panel hidden" id="lightsPanel"><strong>Lights</strong><div class="all-controls"><button class="primary" id="allOnBtn">ALL LIGHTS ON</button><button class="primary" id="allOffBtn" style="background:#dc465b;color:white">ALL LIGHTS OFF</button></div><div id="lights"></div>
+<button class="primary" id="refreshBtn">Refresh status</button>
+<button class="linkbtn" id="logoutBtn">Sign out / Forget this device</button></section>
+<section class="panel"><strong>Status</strong><p id="status" class="status">Checking saved login...</p></section>
+<p class="small">Database: smart-home-light-aa446 · Refresh token is stored in this WebView's local storage. Avoid using on a shared device.</p>
+</div>
+<script>
+
+// Storage adapter: some Android WebView file origins expose localStorage as null.
+const safeStore = (() => {
+  const memory = Object.create(null);
+  function cookieGet(key) {
+    try {
+      const prefix = encodeURIComponent(key) + '=';
+      const parts = document.cookie ? document.cookie.split(';') : [];
+      for (let part of parts) {
+        part = part.trim();
+        if (part.startsWith(prefix)) return decodeURIComponent(part.slice(prefix.length));
+      }
+    } catch (_) {}
+    return null;
+  }
+  function cookieSet(key, value) {
+    try {
+      document.cookie = encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; path=/; max-age=2592000; SameSite=Lax';
+      return cookieGet(key) === value;
+    } catch (_) { return false; }
+  }
+  return {
+    getItem(key) {
+      try { if (window.localStorage) { const v = window.localStorage.getItem(key); if (v !== null) return v; } } catch (_) {}
+      const c = cookieGet(key); if (c !== null) return c;
+      return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : null;
+    },
+    setItem(key, value) {
+      let saved = false;
+      try { if (window.localStorage) { window.localStorage.setItem(key, value); saved = true; } } catch (_) {}
+      if (!saved) saved = cookieSet(key, value);
+      memory[key] = String(value);
+      return saved;
+    },
+    removeItem(key) {
+      try { if (window.localStorage) window.localStorage.removeItem(key); } catch (_) {}
+      try { document.cookie = encodeURIComponent(key) + '=; path=/; max-age=0; SameSite=Lax'; } catch (_) {}
+      delete memory[key];
+    }
+  };
+})();
+
+const DB='https://smart-home-light-aa446-default-rtdb.asia-southeast1.firebasedatabase.app';
+const AUTH='https://securetoken.googleapis.com/v1/token?key=';
+const ids=[['front','Front Light'],['back','Back Light'],['wall','Wall Light'],['gate','Gate Light']];
+let apiKey='',idToken='',refreshToken='',refreshTimer=null,authTimer=null;
+const statusEl=document.getElementById('status');
+function status(s){statusEl.textContent=s}
+function render(values){
+ const root=document.getElementById('lights');root.innerHTML='';
+ ids.forEach(([id,name])=>{
+  const on=values&&values[id]===true;
+  const row=document.createElement('div');row.className='lightrow';
+  row.innerHTML=`<div class="bulb">${on?'💡':'🔅'}</div>
+   <div class="name">${name}<div class="state">${on?'ON':'OFF'}</div></div>
+   <div class="light-actions">
+    <button class="light-on ${on?'selected-on':''}" data-action="on">ON</button>
+    <button class="light-off ${!on?'selected-off':''}" data-action="off">OFF</button>
+   </div>`;
+  row.querySelector('[data-action="on"]').addEventListener('click',()=>setLight(id,true));
+  row.querySelector('[data-action="off"]').addEventListener('click',()=>setLight(id,false));
+  root.appendChild(row);
+ });
+}
+async function request(url,options={}){const r=await fetch(url,options);const txt=await r.text();let data;try{data=JSON.parse(txt)}catch{data=txt}
+ if(!r.ok)throw new Error((data&&data.error&&data.error.message)||('HTTP '+r.status));return data;}
+async function getLights(){const d=await request(`${DB}/lights.json?auth=${encodeURIComponent(idToken)}`);render(d||{});}
+
+async function setLight(id,value){
+ const buttons=document.querySelectorAll('.light-actions button');
+ buttons.forEach(b=>b.disabled=true);
+ try{
+  status('Updating '+id+' light...');
+  await request(`${DB}/lights/${encodeURIComponent(id)}.json?auth=${encodeURIComponent(idToken)}`,{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(value)
+  });
+  await getLights();
+  status(ids.find(x=>x[0]===id)[1]+' turned '+(value?'ON':'OFF')+'.');
+ }catch(e){status('Light update failed: '+e.message)}
+ finally{buttons.forEach(b=>b.disabled=false)}
+}
+
+
+async function setAllLights(value){
+ const btns=[document.getElementById('allOnBtn'),document.getElementById('allOffBtn')];
+ btns.forEach(b=>b.disabled=true);
+ try{
+  status('Updating all lights...');
+  await request(`${DB}/lights.json?auth=${encodeURIComponent(idToken)}`,{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({front:value,back:value,wall:value,gate:value})
+  });
+  await getLights();
+  status('All lights set to '+(value?'ON':'OFF')+'.');
+ }catch(e){status('All-lights update failed: '+e.message)}
+ finally{btns.forEach(b=>b.disabled=false)}
+}
+
+async function refreshAuth(){
+ if(!apiKey||!refreshToken)throw new Error('No saved login. Please log in again.');
+ const d=await request(AUTH+encodeURIComponent(apiKey),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:refreshToken}).toString()});
+ idToken=d.id_token;refreshToken=d.refresh_token||refreshToken;
+ safeStore.setItem('shl_api_key',apiKey);safeStore.setItem('shl_refresh_token',refreshToken);
+}
+async function showLights(){
+ document.getElementById('loginPanel').classList.add('hidden');document.getElementById('lightsPanel').classList.remove('hidden');
+ await getLights();status('Firebase connected. Login session restored or active.');
+ if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(async()=>{try{await getLights()}catch(e){status('Refresh error: '+e.message)}},5000);
+ if(authTimer)clearInterval(authTimer);authTimer=setInterval(async()=>{try{await refreshAuth();await getLights()}catch(e){status('Session refresh failed: '+e.message+'\\nPlease sign in again.')}},45*60*1000);
+}
+document.getElementById('connectBtn').addEventListener('click',async()=>{
+ apiKey=document.getElementById('apiKey').value.trim();
+ if(!apiKey){status('Firebase Web API Key enter செய்யவும்.');return;}
+ const b=document.getElementById('connectBtn');b.disabled=true;b.textContent='Connecting...';
+ try{const a=await request(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
+ idToken=a.idToken;refreshToken=a.refreshToken;safeStore.setItem('shl_api_key',apiKey);safeStore.setItem('shl_refresh_token',refreshToken);await showLights();
+ }catch(e){status('Anonymous connection failed: '+e.message+'\\nFirebase Anonymous provider enabled உள்ளதா பார்க்கவும்.');}
+ finally{b.disabled=false;b.textContent='Connect without password';}
+});
+document.getElementById('allOnBtn').addEventListener('click',()=>setAllLights(true));
+document.getElementById('allOffBtn').addEventListener('click',()=>setAllLights(false));
+document.getElementById('refreshBtn').addEventListener('click',async()=>{try{await getLights();status('Status refreshed.')}catch(e){try{await refreshAuth();await getLights();status('Session refreshed.')}catch(err){status('Refresh failed: '+err.message)}}});
+document.getElementById('logoutBtn').addEventListener('click',()=>{safeStore.removeItem('shl_api_key');safeStore.removeItem('shl_refresh_token');if(refreshTimer)clearInterval(refreshTimer);if(authTimer)clearInterval(authTimer);apiKey='';idToken='';refreshToken='';document.getElementById('lightsPanel').classList.add('hidden');document.getElementById('loginPanel').classList.remove('hidden');status('Saved login removed. Sign in again when ready.');});
+// Separate Local Wi-Fi mode. ESP32 endpoint accepts /set?light=front&state=1 or 0.
+const localIds=[['front','Front Light'],['back','Back Light'],['wall','Wall Light'],['gate','Gate Light']];
+let localStates={front:false,back:false,wall:false,gate:false};
+function renderLocal(){
+ const root=document.getElementById('localLights');root.innerHTML='';
+ localIds.forEach(([id,name])=>{
+  const on=!!localStates[id];
+  const row=document.createElement('div');row.className='lightrow';
+  row.innerHTML=`<div class="bulb">${on?'💡':'🔅'}</div><div class="name">${name}<div class="state">${on?'ON':'OFF'}</div></div><div class="light-actions"><button data-a="1" style="${on?'background:#25c997;color:#062b27':''}">ON</button><button data-a="0" style="${!on?'background:#dc465b;color:white':''}">OFF</button></div>`;
+  row.querySelector('[data-a="1"]').onclick=()=>localSet(id,1);
+  row.querySelector('[data-a="0"]').onclick=()=>localSet(id,0);
+  root.appendChild(row);
+ });
+}
+function localBase(){return document.getElementById('localAddress').value.trim().replace(/\/$/,'');}
+async function localRefresh(showMessage=true){
+ try{
+  const r=await fetch(`${localBase()}/status`,{cache:'no-store'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  localStates=await r.json();renderLocal();
+  if(showMessage)document.getElementById('localStatus').textContent='Local status refreshed from ESP32.';
+ }catch(e){
+  if(showMessage)document.getElementById('localStatus').textContent='Status read failed: '+e.message+'. Phone ESP32-Light Wi-Fi-க்கு connect ஆனதா பார்க்கவும்.';
+ }
+}
+async function localSet(id,state){
+  // Update the button colour immediately; Android WebView may block reading
+  // the ESP32 response because of CORS even when the command reaches ESP32.
+  const previous = {...localStates};
+  localStates[id] = (state === 1);
+  renderLocal();
+  document.getElementById('localStatus').textContent =
+    localIds.find(x=>x[0]===id)[1] + ' ' + (state ? 'ON' : 'OFF') + ' selected; sending command...';
+  try {
+    await fetch(`${localBase()}/set?light=${encodeURIComponent(id)}&state=${state}`, {cache:'no-store', mode:'no-cors'});
+    document.getElementById('localStatus').textContent =
+      localIds.find(x=>x[0]===id)[1] + ' ' + (state ? 'ON' : 'OFF') + ' selected.';
+  } catch(e) {
+    localStates = previous;
+    renderLocal();
+    document.getElementById('localStatus').textContent = 'Command could not be sent. ESP32-Light Wi-Fi connection-ஐச் சரிபார்க்கவும்.';
+  }
+}
+async function localAll(v){
+  const previous = {...localStates};
+  localIds.forEach(([id]) => { localStates[id] = (v === 1); });
+  renderLocal();
+  document.getElementById('localStatus').textContent = 'All lights ' + (v ? 'ON' : 'OFF') + ' selected; sending command...';
+  try {
+    await fetch(`${localBase()}/setAll?state=${v}`, {cache:'no-store', mode:'no-cors'});
+    document.getElementById('localStatus').textContent = 'All lights ' + (v ? 'ON' : 'OFF') + ' selected.';
+  } catch(e) {
+    localStates = previous;
+    renderLocal();
+    document.getElementById('localStatus').textContent = 'All-lights command could not be sent. ESP32-Light Wi-Fi connection-ஐச் சரிபார்க்கவும்.';
+  }
+}
+document.getElementById('localAllOn').onclick=()=>localAll(1);
+document.getElementById('localAllOff').onclick=()=>localAll(0);
+document.getElementById('localRefresh').onclick=()=>localRefresh(true);
+setInterval(()=>{if(!document.getElementById('localPanel').classList.contains('hidden'))localRefresh(false);},2500);
+document.getElementById('localModeBtn').onclick=()=>{document.getElementById('localPanel').classList.remove('hidden');document.getElementById('loginPanel').classList.add('hidden');document.getElementById('lightsPanel').classList.add('hidden');};
+document.getElementById('cloudModeBtn').onclick=()=>{document.getElementById('localPanel').classList.add('hidden');if(idToken){document.getElementById('lightsPanel').classList.remove('hidden');document.getElementById('loginPanel').classList.add('hidden');}else{document.getElementById('lightsPanel').classList.add('hidden');document.getElementById('loginPanel').classList.remove('hidden');}};
+renderLocal();
+(async()=>{try{apiKey=safeStore.getItem('shl_api_key')||'';refreshToken=safeStore.getItem('shl_refresh_token')||'';
+ if(apiKey&&refreshToken){await refreshAuth();await showLights();}else{status('Cloud mode: press Connect without password once. Local mode does not need Firebase login.');}
+}catch(e){safeStore.removeItem('shl_refresh_token');status('Saved session expired or unavailable. Please log in once again. '+e.message);}})();
+</script></body></html>

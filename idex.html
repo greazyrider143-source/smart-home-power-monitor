@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Home Light — Neon</title>
+<style>
+:root{color-scheme:dark;--bg:#070b18;--panel:#10182b;--panel2:#0c1425;--line:#24334d;--cyan:#4de8ff;--blue:#4f7cff;--muted:#9baac4;--green:#36f2b0;--red:#ff5876}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:radial-gradient(ellipse at 50% -10%,#17365b 0%,#0a1020 42%,var(--bg) 78%);color:#f3f7ff;padding:18px 14px 100px}
+button,input{font:inherit}
+button{cursor:pointer;transition:transform .16s ease,filter .16s ease,box-shadow .16s ease}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.55;cursor:wait}
+.wrap{max-width:560px;margin:0 auto}
+.topbar{display:flex;align-items:center;gap:12px;margin:4px 0 22px}
+.brandmark{width:48px;height:48px;display:grid;place-items:center;border:1px solid #3deaff66;border-radius:16px;background:linear-gradient(145deg,#12374c,#111a32);box-shadow:0 0 26px #24dfff22;font-size:25px}
+h1{font-size:22px;letter-spacing:.2px;margin:0;font-weight:800}.sub{color:var(--muted);margin:4px 0 0;font-size:12px}
+.live-pill{margin-left:auto;display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #29445a;background:#0b1b2b;border-radius:999px;color:#a9f8ff;font-size:10px;font-weight:800;letter-spacing:.6px;white-space:nowrap}
+.dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 10px var(--green);animation:pulse 1.7s infinite}
+@keyframes pulse{50%{opacity:.4;box-shadow:0 0 2px var(--green)}}
+.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;border:1px solid var(--line);background:#090f1e;border-radius:16px;margin-bottom:16px}
+.mode-switch button{border:1px solid transparent;border-radius:12px;background:transparent;color:#91a1bd;padding:12px 6px;font-size:12px;font-weight:800}
+.mode-switch button.active{color:#dffcff;border-color:#35dffb66;background:linear-gradient(120deg,#153c55,#142347);box-shadow:inset 0 0 18px #2bdfff10,0 0 18px #24dfff12}
+.hero{position:relative;overflow:hidden;border:1px solid #31516e;border-radius:23px;padding:21px;background:linear-gradient(135deg,#142b47 0%,#111b32 54%,#11162b 100%);box-shadow:0 16px 40px #0003;margin-bottom:14px}
+.hero:after{content:"";position:absolute;width:190px;height:190px;border-radius:50%;right:-65px;top:-78px;background:#2fe7ff0c;border:1px solid #37dfff15;box-shadow:0 0 50px #31e7ff0a;pointer-events:none}
+.eyebrow{font-size:10px;color:var(--cyan);font-weight:800;letter-spacing:1.8px;text-transform:uppercase}
+.hero h2{font-size:25px;line-height:1.15;margin:9px 0 7px;max-width:280px}
+.hero p{font-size:12px;color:#a9b8d1;margin:0;line-height:1.6;max-width:280px}
+.hero-stats{display:flex;align-items:center;gap:14px;margin-top:22px}
+.stat-number{font-size:30px;font-weight:850;letter-spacing:-1px}.stat-label{font-size:10px;color:#a8b7ce;line-height:1.4}
+.mini-track{height:5px;border-radius:99px;background:#25344d;overflow:hidden;margin-top:9px;max-width:190px}.mini-track span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:99px;transition:width .25s}
+.panel{background:linear-gradient(145deg,#111a2d,#0d1424);border:1px solid var(--line);border-radius:20px;padding:17px;margin:13px 0;box-shadow:0 12px 28px #0002}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.section-head strong{font-size:14px;letter-spacing:.2px}.muted-tag{font-size:10px;color:#91a5c3;border:1px solid #2a3a55;border-radius:999px;padding:5px 8px}
+.all-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.primary{border:1px solid #4ce8ff55;background:linear-gradient(135deg,#164b65,#253c7b);color:#e7fcff;border-radius:13px;padding:13px 10px;font-size:11px;font-weight:850;letter-spacing:.35px;box-shadow:0 5px 18px #20dfff12}
+.primary:hover{filter:brightness(1.15);box-shadow:0 0 18px #20dfff24}
+.primary.danger{background:linear-gradient(135deg,#55243d,#8b2946);border-color:#ff587666;color:#fff0f4}
+.lightrow{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #243149}
+.lightrow:last-child{border-bottom:0;padding-bottom:2px}
+.bulb{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;border:1px solid #2d3b55;border-radius:14px;background:#0b1323;font-size:22px;filter:grayscale(.65);transition:all .2s}
+.lightrow.is-on .bulb{filter:none;background:#143449;border-color:#35e8ff99;box-shadow:0 0 19px #22dfff22;animation:glow 2.2s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 24px #22dfff3a}}
+.name{flex:1;min-width:0;font-size:13px;font-weight:750}.state{font-size:10px;color:#8494b0;margin-top:5px;letter-spacing:1px;font-weight:800}.lightrow.is-on .state{color:var(--green)}
+.light-actions{display:flex;gap:5px;align-items:center}.light-actions button{min-width:47px;padding:9px 10px;border:1px solid #2d3c55;border-radius:10px;font-size:10px;font-weight:850;color:#9eacc3;background:#111c30}
+.light-actions .selected-on{background:#103c3a;color:#6bffd1;border-color:#25d9a7aa;box-shadow:0 0 14px #20dba51c}
+.light-actions .selected-off{background:#432033;color:#ff9aae;border-color:#ff587655}
+label{display:block;font-size:11px;color:#aebbd1;margin:13px 0 7px}
+input{width:100%;padding:12px 13px;border-radius:11px;border:1px solid #2c3d58;background:#080f1e;color:white;font-size:13px;outline:none}
+input:focus{border-color:#40dcf4;box-shadow:0 0 0 3px #35dffb15}
+.status{font-size:12px;line-height:1.6;color:#b5c5dd;white-space:pre-wrap;margin:8px 0 0;overflow-wrap:anywhere}
+.small{font-size:11px;color:#8fa0bc;line-height:1.65}.hidden{display:none!important}
+.linkbtn{background:transparent;border:0;color:#91eaff;padding:13px 0 0;font-size:11px;font-weight:700}
+.bottom-nav{position:fixed;z-index:10;bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#080d1bea;backdrop-filter:blur(18px);border-top:1px solid #27364d;display:flex;justify-content:center}
+.nav-inner{width:min(560px,100%);display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:1px solid transparent;color:#7f90ad;padding:8px 3px;border-radius:12px;font-size:9px;font-weight:800}
+.nav-btn .nav-icon{font-size:17px;line-height:1.2}.nav-btn.active{color:#6deeff;background:#123046;border-color:#35dfff33}
+.page{display:none}.page.active{display:block}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.info-tile{padding:12px;border:1px solid #263852;background:#0b1323;border-radius:13px}.info-tile b{display:block;font-size:12px;margin-bottom:5px}.info-tile span{font-size:11px;color:#91a3bf}
+hr{border:0;border-top:1px solid #26354d;margin:15px 0}
+@media(min-width:500px){body{padding-top:25px}.hero{padding:25px}.panel{padding:20px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="brandmark">⌂</div>
+    <div><h1>Smart Home <span style="color:var(--cyan)">Light</span></h1><p class="sub">Connected living · control from anywhere</p></div>
+    <div class="live-pill"><span class="dot"></span> SMART</div>
+  </header>
+
+  <div class="mode-switch">
+    <button id="localModeBtn" class="active">⌂ &nbsp; LOCAL Wi-Fi</button>
+    <button id="cloudModeBtn">☁ &nbsp; INTERNET CLOUD</button>
+  </div>
+
+  <div id="page-home" class="page active">
+    <section class="hero">
+      <div class="eyebrow">Your home, your control</div>
+      <h2>Light up your<br>space.</h2>
+      <p>Manage every room with a tap — locally or over the internet.</p>
+      <div class="hero-stats"><div class="stat-number" id="activeCount">0/4</div><div><div class="stat-label">LIGHTS ON</div><div class="mini-track"><span id="activeTrack"></span></div></div></div>
+    </section>
+
+    <section class="panel" id="localPanel">
+      <div class="section-head"><strong>Local Wi-Fi Control</strong><span class="muted-tag">ESP32 DIRECT</span></div>
+      <p class="small">Phone-ஐ ESP32-Light Wi-Fi-க்கு connect செய்து பயன்படுத்தவும். Password: 12345678</p>
+      <label for="localAddress">ESP32 address</label><input id="localAddress" value="http://192.168.4.1"/>
+      <div class="all-controls" style="margin:13px 0 7px"><button class="primary" id="localAllOn">⚡ ALL LIGHTS ON</button><button class="primary danger" id="localAllOff">ALL LIGHTS OFF</button></div>
+      <div id="localLights"></div>
+      <button class="primary" id="localRefresh" style="width:100%;margin-top:13px">↻ &nbsp; Refresh local status</button>
+      <p id="localStatus" class="status">Connect to ESP32-Light Wi-Fi first.</p>
+    </section>
+
+    <section class="panel hidden" id="loginPanel">
+      <div class="section-head"><strong>Connect to Firebase</strong><span class="muted-tag">CLOUD SETUP</span></div>
+      <p class="small">First connection uses Firebase Anonymous Authentication. No email or password is needed.</p>
+      <label for="apiKey">Firebase Web API Key</label><input id="apiKey" autocomplete="off" placeholder="Paste Firebase Web API Key">
+      <button class="primary" id="connectBtn" style="width:100%">Connect without password</button>
+    </section>
+
+    <section class="panel hidden" id="lightsPanel">
+      <div class="section-head"><strong>Room lights</strong><span class="muted-tag">LIVE CONTROL</span></div>
+      <div class="all-controls" style="margin-bottom:9px"><button class="primary" id="allOnBtn">⚡ ALL LIGHTS ON</button><button class="primary danger" id="allOffBtn">ALL LIGHTS OFF</button></div>
+      <div id="lights"></div>
+      <button class="primary" id="refreshBtn" style="width:100%;margin-top:13px">↻ &nbsp; Refresh status</button>
+      <button class="linkbtn" id="logoutBtn">Sign out / Forget this device</button>
+    </section>
+    <section class="panel"><div class="section-head"><strong>Connection status</strong><span class="muted-tag">SYSTEM</span></div><p id="status" class="status">Checking saved login...</p></section>
+  </div>
+
+  <div id="page-status" class="page">
+    <section class="hero"><div class="eyebrow">Live overview</div><h2>Home status</h2><p>Quick summary of the four connected lights.</p><div class="hero-stats"><div class="stat-number" id="statusCount">0/4</div><div class="stat-label">LIGHTS CURRENTLY ON</div></div></section>
+    <section class="panel"><div class="section-head"><strong>Current light states</strong><span class="muted-tag">4 LIGHTS</span></div><div id="statusSummary"></div><hr><p class="small">Local mode status is read from the ESP32 /status endpoint. Cloud status is read from Firebase.</p></section>
+    <section class="panel"><div class="section-head"><strong>Connection message</strong></div><p id="statusMirror" class="status">Choose Local Wi-Fi or Internet Cloud from Home.</p><p id="localStatusMirror" class="status"></p></section>
+  </div>
+
+  <div id="page-settings" class="page">
+    <section class="hero"><div class="eyebrow">Preferences</div><h2>Control settings</h2><p>Configure the local ESP32 address and cloud connection.</p></section>
+    <section class="panel"><div class="section-head"><strong>Local ESP32</strong><span class="muted-tag">WI-FI</span></div><label for="localAddressSettings">ESP32 address</label><input id="localAddressSettings" value="http://192.168.4.1"><p class="small">This address is used for local status and light commands. Keep it aligned with your ESP32 firmware.</p><button class="primary" id="saveLocalAddress" style="width:100%">Save local address</button></section>
+    <section class="panel"><div class="section-head"><strong>Firebase cloud</strong><span class="muted-tag">ANONYMOUS AUTH</span></div><p class="small">Firebase project: smart-home-light-aa446<br>Database path: /lights<br>Login session is stored on this device by the existing app logic.</p><button class="primary" id="openCloudSettings" style="width:100%">Open cloud connection</button></section>
+  </div>
+
+  <div id="page-about" class="page">
+    <section class="hero"><div class="eyebrow">Project information</div><h2>Smart Home<br>Lighting Control</h2><p>ESP32-based lighting control with direct Wi-Fi and Firebase cloud modes.</p></section>
+    <section class="panel"><div class="section-head"><strong>Room & GPIO mapping</strong><span class="muted-tag">ESP32</span></div><div class="info-grid"><div class="info-tile"><b>Front Light</b><span>GPIO 23</span></div><div class="info-tile"><b>Back Light</b><span>GPIO 22</span></div><div class="info-tile"><b>Wall Light</b><span>GPIO 19</span></div><div class="info-tile"><b>Gate Light</b><span>GPIO 18</span></div></div><hr><p class="small">Cloud database: smart-home-light-aa446<br>Local ESP32 default address: 192.168.4.1</p></section>
+  </div>
+  <p class="small" style="text-align:center;margin:18px 0">Smart Home Light · Local Wi-Fi + Internet Cloud</p>
+</div>
+
+<nav class="bottom-nav"><div class="nav-inner">
+  <button class="nav-btn active" data-page="home"><span class="nav-icon">⌂</span>HOME</button>
+  <button class="nav-btn" data-page="status"><span class="nav-icon">◉</span>STATUS</button>
+  <button class="nav-btn" data-page="settings"><span class="nav-icon">⚙</span>SETTINGS</button>
+  <button class="nav-btn" data-page="about"><span class="nav-icon">ⓘ</span>ABOUT</button>
+</div></nav>
+<script>
+
+// Storage adapter: some Android WebView file origins expose localStorage as null.
+const safeStore = (() => {
+  const memory = Object.create(null);
+  function cookieGet(key) {
+    try {
+      const prefix = encodeURIComponent(key) + '=';
+      const parts = document.cookie ? document.cookie.split(';') : [];
+      for (let part of parts) {
+        part = part.trim();
+        if (part.startsWith(prefix)) return decodeURIComponent(part.slice(prefix.length));
+      }
+    } catch (_) {}
+    return null;
+  }
+  function cookieSet(key, value) {
+    try {
+      document.cookie = encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; path=/; max-age=2592000; SameSite=Lax';
+      return cookieGet(key) === value;
+    } catch (_) { return false; }
+  }
+  return {
+    getItem(key) {
+      try { if (window.localStorage) { const v = window.localStorage.getItem(key); if (v !== null) return v; } } catch (_) {}
+      const c = cookieGet(key); if (c !== null) return c;
+      return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : null;
+    },
+    setItem(key, value) {
+      let saved = false;
+      try { if (window.localStorage) { window.localStorage.setItem(key, value); saved = true; } } catch (_) {}
+      if (!saved) saved = cookieSet(key, value);
+      memory[key] = String(value);
+      return saved;
+    },
+    removeItem(key) {
+      try { if (window.localStorage) window.localStorage.removeItem(key); } catch (_) {}
+      try { document.cookie = encodeURIComponent(key) + '=; path=/; max-age=0; SameSite=Lax'; } catch (_) {}
+      delete memory[key];
+    }
+  };
+})();
+
+const DB='https://smart-home-light-aa446-default-rtdb.asia-southeast1.firebasedatabase.app';
+const AUTH='https://securetoken.googleapis.com/v1/token?key=';
+const ids=[['front','Front Light'],['back','Back Light'],['wall','Wall Light'],['gate','Gate Light']];
+let apiKey='',idToken='',refreshToken='',refreshTimer=null,authTimer=null;
+const statusEl=document.getElementById('status');
+function status(s){statusEl.textContent=s}
+function render(values){
+ const root=document.getElementById('lights');root.innerHTML='';
+ ids.forEach(([id,name])=>{
+  const on=values&&values[id]===true;
+  const row=document.createElement('div');row.className='lightrow';
+  row.innerHTML=`<div class="bulb">${on?'💡':'🔅'}</div>
+   <div class="name">${name}<div class="state">${on?'ON':'OFF'}</div></div>
+   <div class="light-actions">
+    <button class="light-on ${on?'selected-on':''}" data-action="on">ON</button>
+    <button class="light-off ${!on?'selected-off':''}" data-action="off">OFF</button>
+   </div>`;
+  row.querySelector('[data-action="on"]').addEventListener('click',()=>setLight(id,true));
+  row.querySelector('[data-action="off"]').addEventListener('click',()=>setLight(id,false));
+  root.appendChild(row);
+ });
+}
+async function request(url,options={}){const r=await fetch(url,options);const txt=await r.text();let data;try{data=JSON.parse(txt)}catch{data=txt}
+ if(!r.ok)throw new Error((data&&data.error&&data.error.message)||('HTTP '+r.status));return data;}
+async function getLights(){const d=await request(`${DB}/lights.json?auth=${encodeURIComponent(idToken)}`);render(d||{});}
+
+async function setLight(id,value){
+ const buttons=document.querySelectorAll('.light-actions button');
+ buttons.forEach(b=>b.disabled=true);
+ try{
+  status('Updating '+id+' light...');
+  await request(`${DB}/lights/${encodeURIComponent(id)}.json?auth=${encodeURIComponent(idToken)}`,{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(value)
+  });
+  await getLights();
+  status(ids.find(x=>x[0]===id)[1]+' turned '+(value?'ON':'OFF')+'.');
+ }catch(e){status('Light update failed: '+e.message)}
+ finally{buttons.forEach(b=>b.disabled=false)}
+}
+
+
+async function setAllLights(value){
+ const btns=[document.getElementById('allOnBtn'),document.getElementById('allOffBtn')];
+ btns.forEach(b=>b.disabled=true);
+ try{
+  status('Updating all lights...');
+  await request(`${DB}/lights.json?auth=${encodeURIComponent(idToken)}`,{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({front:value,back:value,wall:value,gate:value})
+  });
+  await getLights();
+  status('All lights set to '+(value?'ON':'OFF')+'.');
+ }catch(e){status('All-lights update failed: '+e.message)}
+ finally{btns.forEach(b=>b.disabled=false)}
+}
+
+async function refreshAuth(){
+ if(!apiKey||!refreshToken)throw new Error('No saved login. Please log in again.');
+ const d=await request(AUTH+encodeURIComponent(apiKey),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:refreshToken}).toString()});
+ idToken=d.id_token;refreshToken=d.refresh_token||refreshToken;
+ safeStore.setItem('shl_api_key',apiKey);safeStore.setItem('shl_refresh_token',refreshToken);
+}
+async function showLights(){
+ document.getElementById('loginPanel').classList.add('hidden');document.getElementById('lightsPanel').classList.remove('hidden');
+ await getLights();status('Firebase connected. Login session restored or active.');
+ if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(async()=>{try{await getLights()}catch(e){status('Refresh error: '+e.message)}},5000);
+ if(authTimer)clearInterval(authTimer);authTimer=setInterval(async()=>{try{await refreshAuth();await getLights()}catch(e){status('Session refresh failed: '+e.message+'\\nPlease sign in again.')}},45*60*1000);
+}
+document.getElementById('connectBtn').addEventListener('click',async()=>{
+ apiKey=document.getElementById('apiKey').value.trim();
+ if(!apiKey){status('Firebase Web API Key enter செய்யவும்.');return;}
+ const b=document.getElementById('connectBtn');b.disabled=true;b.textContent='Connecting...';
+ try{const a=await request(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
+ idToken=a.idToken;refreshToken=a.refreshToken;safeStore.setItem('shl_api_key',apiKey);safeStore.setItem('shl_refresh_token',refreshToken);await showLights();
+ }catch(e){status('Anonymous connection failed: '+e.message+'\\nFirebase Anonymous provider enabled உள்ளதா பார்க்கவும்.');}
+ finally{b.disabled=false;b.textContent='Connect without password';}
+});
+document.getElementById('allOnBtn').addEventListener('click',()=>setAllLights(true));
+document.getElementById('allOffBtn').addEventListener('click',()=>setAllLights(false));
+document.getElementById('refreshBtn').addEventListener('click',async()=>{try{await getLights();status('Status refreshed.')}catch(e){try{await refreshAuth();await getLights();status('Session refreshed.')}catch(err){status('Refresh failed: '+err.message)}}});
+document.getElementById('logoutBtn').addEventListener('click',()=>{safeStore.removeItem('shl_api_key');safeStore.removeItem('shl_refresh_token');if(refreshTimer)clearInterval(refreshTimer);if(authTimer)clearInterval(authTimer);apiKey='';idToken='';refreshToken='';document.getElementById('lightsPanel').classList.add('hidden');document.getElementById('loginPanel').classList.remove('hidden');status('Saved login removed. Sign in again when ready.');});
+// Separate Local Wi-Fi mode. ESP32 endpoint accepts /set?light=front&state=1 or 0.
+const localIds=[['front','Front Light'],['back','Back Light'],['wall','Wall Light'],['gate','Gate Light']];
+let localStates={front:false,back:false,wall:false,gate:false};
+function renderLocal(){
+ const root=document.getElementById('localLights');root.innerHTML='';
+ localIds.forEach(([id,name])=>{
+  const on=!!localStates[id];
+  const row=document.createElement('div');row.className='lightrow';
+  row.innerHTML=`<div class="bulb">${on?'💡':'🔅'}</div><div class="name">${name}<div class="state">${on?'ON':'OFF'}</div></div><div class="light-actions"><button data-a="1" style="${on?'background:#25c997;color:#062b27':''}">ON</button><button data-a="0" style="${!on?'background:#dc465b;color:white':''}">OFF</button></div>`;
+  row.querySelector('[data-a="1"]').onclick=()=>localSet(id,1);
+  row.querySelector('[data-a="0"]').onclick=()=>localSet(id,0);
+  root.appendChild(row);
+ });
+}
+function localBase(){return document.getElementById('localAddress').value.trim().replace(/\/$/,'');}
+async function localRefresh(showMessage=true){
+ try{
+  const r=await fetch(`${localBase()}/status`,{cache:'no-store'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  localStates=await r.json();renderLocal();
+  if(showMessage)document.getElementById('localStatus').textContent='Local status refreshed from ESP32.';
+ }catch(e){
+  if(showMessage)document.getElementById('localStatus').textContent='Status read failed: '+e.message+'. Phone ESP32-Light Wi-Fi-க்கு connect ஆனதா பார்க்கவும்.';
+ }
+}
+async function localSet(id,state){
+  // Update the button colour immediately; Android WebView may block reading
+  // the ESP32 response because of CORS even when the command reaches ESP32.
+  const previous = {...localStates};
+  localStates[id] = (state === 1);
+  renderLocal();
+  document.getElementById('localStatus').textContent =
+    localIds.find(x=>x[0]===id)[1] + ' ' + (state ? 'ON' : 'OFF') + ' selected; sending command...';
+  try {
+    await fetch(`${localBase()}/set?light=${encodeURIComponent(id)}&state=${state}`, {cache:'no-store', mode:'no-cors'});
+    document.getElementById('localStatus').textContent =
+      localIds.find(x=>x[0]===id)[1] + ' ' + (state ? 'ON' : 'OFF') + ' selected.';
+  } catch(e) {
+    localStates = previous;
+    renderLocal();
+    document.getElementById('localStatus').textContent = 'Command could not be sent. ESP32-Light Wi-Fi connection-ஐச் சரிபார்க்கவும்.';
+  }
+}
+async function localAll(v){
+  const previous = {...localStates};
+  localIds.forEach(([id]) => { localStates[id] = (v === 1); });
+  renderLocal();
+  document.getElementById('localStatus').textContent = 'All lights ' + (v ? 'ON' : 'OFF') + ' selected; sending command...';
+  try {
+    await fetch(`${localBase()}/setAll?state=${v}`, {cache:'no-store', mode:'no-cors'});
+    document.getElementById('localStatus').textContent = 'All lights ' + (v ? 'ON' : 'OFF') + ' selected.';
+  } catch(e) {
+    localStates = previous;
+    renderLocal();
+    document.getElementById('localStatus').textContent = 'All-lights command could not be sent. ESP32-Light Wi-Fi connection-ஐச் சரிபார்க்கவும்.';
+  }
+}
+document.getElementById('localAllOn').onclick=()=>localAll(1);
+document.getElementById('localAllOff').onclick=()=>localAll(0);
+document.getElementById('localRefresh').onclick=()=>localRefresh(true);
+setInterval(()=>{if(!document.getElementById('localPanel').classList.contains('hidden'))localRefresh(false);},2500);
+document.getElementById('localModeBtn').onclick=()=>{document.getElementById('localPanel').classList.remove('hidden');document.getElementById('loginPanel').classList.add('hidden');document.getElementById('lightsPanel').classList.add('hidden');};
+document.getElementById('cloudModeBtn').onclick=()=>{document.getElementById('localPanel').classList.add('hidden');if(idToken){document.getElementById('lightsPanel').classList.remove('hidden');document.getElementById('loginPanel').classList.add('hidden');}else{document.getElementById('lightsPanel').classList.add('hidden');document.getElementById('loginPanel').classList.remove('hidden');}};
+renderLocal();
+(async()=>{try{apiKey=safeStore.getItem('shl_api_key')||'';refreshToken=safeStore.getItem('shl_refresh_token')||'';
+ if(apiKey&&refreshToken){await refreshAuth();await showLights();}else{status('Cloud mode: press Connect without password once. Local mode does not need Firebase login.');}
+}catch(e){safeStore.removeItem('shl_refresh_token');status('Saved session expired or unavailable. Please log in once again. '+e.message);}})();
+</script>
+<script>
+/* Presentation-only helpers. Existing Firebase and local control functions above are preserved. */
+(function(){
+ const pages=['home','status','settings','about'];
+ document.querySelectorAll('.nav-btn').forEach(btn=>btn.addEventListener('click',()=>{
+   const page=btn.dataset.page;
+   pages.forEach(p=>document.getElementById('page-'+p).classList.toggle('active',p===page));
+   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b===btn));
+ }));
+ function syncAddress(fromSettings){
+   const a=document.getElementById('localAddress');
+   const b=document.getElementById('localAddressSettings');
+   if(fromSettings){a.value=b.value.trim()||'http://192.168.4.1';}
+   else{b.value=a.value;}
+ }
+ document.getElementById('saveLocalAddress').addEventListener('click',()=>{
+   syncAddress(true);
+   document.getElementById('localStatus').textContent='ESP32 address saved for this page session: '+document.getElementById('localAddress').value;
+ });
+ document.getElementById('localAddress').addEventListener('change',()=>syncAddress(false));
+ document.getElementById('openCloudSettings').addEventListener('click',()=>{
+   document.querySelector('[data-page="home"]').click();
+   document.getElementById('cloudModeBtn').click();
+ });
+ const originalRender=window.render;
+ // Observe the rendered light rows to refresh the overview without changing control logic.
+ const watchRoot=(id,mode)=>{
+   const root=document.getElementById(id);
+   if(!root)return;
+   new MutationObserver(()=>{
+     const rows=[...root.querySelectorAll('.lightrow')];
+     rows.forEach(r=>r.classList.toggle('is-on',r.querySelector('.state')?.textContent.trim()==='ON'));
+     const count=rows.filter(r=>r.querySelector('.state')?.textContent.trim()==='ON').length;
+     document.getElementById('activeCount').textContent=count+'/4';
+     document.getElementById('statusCount').textContent=count+'/4';
+     document.getElementById('activeTrack').style.width=(count/4*100)+'%';
+     const summary=document.getElementById('statusSummary');
+     if(summary && rows.length){
+       summary.innerHTML='';
+       rows.forEach(r=>{
+         const name=r.querySelector('.name')?.childNodes[0]?.textContent?.trim()||'Light';
+         const state=r.querySelector('.state')?.textContent.trim()||'UNKNOWN';
+         const item=document.createElement('div');item.className='lightrow '+(state==='ON'?'is-on':'');
+         item.innerHTML='<div class="bulb">'+(state==='ON'?'💡':'🔅')+'</div><div class="name">'+name+'<div class="state">'+state+'</div></div>';
+         summary.appendChild(item);
+       });
+     }
+   }).observe(root,{childList:true,subtree:true,characterData:true});
+ };
+ watchRoot('localLights','local');
+ watchRoot('lights','cloud');
+ const statusNode=document.getElementById('status');
+ const localStatusNode=document.getElementById('localStatus');
+ new MutationObserver(()=>document.getElementById('statusMirror').textContent=statusNode.textContent).observe(statusNode,{childList:true,subtree:true,characterData:true});
+ new MutationObserver(()=>document.getElementById('localStatusMirror').textContent=localStatusNode.textContent).observe(localStatusNode,{childList:true,subtree:true,characterData:true});
+ document.getElementById('localModeBtn').addEventListener('click',()=>{
+   document.getElementById('localModeBtn').classList.add('active');
+   document.getElementById('cloudModeBtn').classList.remove('active');
+ });
+ document.getElementById('cloudModeBtn').addEventListener('click',()=>{
+   document.getElementById('cloudModeBtn').classList.add('active');
+   document.getElementById('localModeBtn').classList.remove('active');
+ });
+ syncAddress(false);
+})();
+</script>
+</body></html>
